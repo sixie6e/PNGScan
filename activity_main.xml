@@ -14,45 +14,25 @@
         android:layout_gravity="center_horizontal"
         android:src="@drawable/pngscan" />
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal">
-
-        <Button
-            android:id="@+id/selectFolderButton"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Choose Folder" />
-
-        <TextView
-            android:id="@+id/folderPathTextView"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_weight="1"
-            android:ellipsize="middle"
-            android:maxLines="1"
-            android:text="No folder selected" />
-    </LinearLayout>
-
     <EditText
         android:id="@+id/search_input"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content" />
+        android:layout_height="wrap_content"
+        android:hint="Enter text to find..." />
 
     <Button
         android:id="@+id/scan_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Scan" />
+        android:text="SELECT FOLDER AND SCAN" />
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/results_recycler_view"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginTop="16dp" />
+        android:layout_marginTop="16dp"
+        tools:listitem="@layout/recycler_view_item_2"
+        tools:spanCount="5"
+        tools:layoutManager="GridLayoutManager" />
 
 </LinearLayout>
