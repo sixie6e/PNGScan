@@ -1,28 +1,35 @@
 package com.example.pngscan
+
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.widget.Button
 import android.widget.EditText
-import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.ComponentActivity
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.appcompat.app.AppCompatActivity
+import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import com.example.pngscan.ImageOcrScanner
-import com.example.pngscan.R
+import kotlinx.coroutines.withContext
 
-class MainActivity : AppCompatActivity() {
+class MainActivity : ComponentActivity() {
 
     private lateinit var scanner: ImageOcrScanner
     private lateinit var searchInput: EditText
-    private lateinit var resultTextView: TextView
+    private lateinit var adapter: OcrResultAdapter
 
-    private val selectImagesLauncher = registerForActivityResult(
-        ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris: List<Uri> ->
-        val query = searchInput.text.toString()
-        if (query.isNotEmpty() && uris.isNotEmpty()) {
-            runScan(uris, query)
+    private val chooseAndScanLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { folderUri: Uri? ->
+        if (folderUri != null) {
+            val query = searchInput.text.toString().trim()
+            if (query.isNotEmpty()) {
+                scanFolder(folderUri, query)
+            }
         }
     }
 
@@ -31,29 +38,70 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         scanner = ImageOcrScanner(this)
-
         searchInput = findViewById(R.id.search_input)
         val scanButton: Button = findViewById(R.id.scan_button)
-        resultTextView = findViewById(R.id.result_text)
+        val recyclerView: RecyclerView = findViewById(R.id.results_recycler_view)
+
+        adapter = OcrResultAdapter { uri -> openImage(uri) }
+        recyclerView.layoutManager = LinearLayoutManager(this)
+        recyclerView.adapter = adapter
 
         scanButton.setOnClickListener {
-            selectImagesLauncher.launch(arrayOf("image/png", "image/jpeg"))
+            val query = searchInput.text.toString().trim()
+            if (query.isEmpty()) {
+                Toast.makeText(this, "Please enter search text before selecting a folder", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            chooseAndScanLauncher.launch(null)
         }
     }
 
-    private fun runScan(uris: List<Uri>, query: String) {
-        lifecycleScope.launch {
-            resultTextView.text = "Scanning ${uris.size} images...\n"
-            var foundCount = 0
+    private fun scanFolder(folderUri: Uri, query: String) {
+        adapter.clear()
+        Toast.makeText(this, "Scanning folder...", Toast.LENGTH_SHORT).show()
 
-            for (uri in uris) {
-                val isFound = scanner.scanImageForText(uri, query)
-                if (isFound) {
-                    foundCount++
-                    resultTextView.append("[+] Found in: ${uri.lastPathSegment}\n")
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                val rootDirectory = DocumentFile.fromTreeUri(applicationContext, folderUri)
+                if (rootDirectory != null && rootDirectory.isDirectory) {
+                    processDirectory(rootDirectory, query)
                 }
             }
-            resultTextView.append("\nScan complete. Found $foundCount matches.")
+            Toast.makeText(this@MainActivity, "Scan complete", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private suspend fun processDirectory(directory: DocumentFile, query: String) {
+        val files = directory.listFiles()
+        for (file in files) {
+            if (file.isDirectory) {
+                processDirectory(file, query)
+            } else if (file.isFile) {
+                val mimeType = file.type ?: ""
+                val fileName = file.name ?: ""
+
+                if (mimeType.startsWith("image/") ||
+                    fileName.endsWith(".png", ignoreCase = true) ||
+                    fileName.endsWith(".jpg", ignoreCase = true) ||
+                    fileName.endsWith(".jpeg", ignoreCase = true)) {
+
+                    val isFound = scanner.scanImageForText(file.uri, query)
+                    if (isFound) {
+                        withContext(Dispatchers.Main) {
+                            adapter.addResult(OcrResultItem(file.uri, fileName))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun openImage(uri: Uri) {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "image/*")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        startActivity(intent)
     }
 }
