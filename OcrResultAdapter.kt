@@ -1,4 +1,4 @@
-package com.example.pngscan
+package com.distherapy.pngscan
 
 import android.net.Uri
 import android.view.LayoutInflater
