@@ -1,4 +1,4 @@
-package com.example.pngscan
+package com.distherapy.pngscan
 
 import android.content.Intent
 import android.net.Uri
